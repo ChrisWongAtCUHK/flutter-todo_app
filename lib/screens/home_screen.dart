@@ -119,6 +119,10 @@ class HomeScreen extends ConsumerWidget {
                                 shape: BoxShape.circle,
                               ),
                             ),
+                            // ✨ 點擊整條 ListTile 就彈出編輯視窗，並把當前的 todo 傳進去
+                            onTap: () {
+                              _showTodoModal(context, ref, todoToEdit: todo);
+                            },
                           ),
                         ),
                       );
@@ -128,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTodoBottomSheet(context, ref),
+        onPressed: () => _showTodoModal(context, ref),
         child: const Icon(Icons.add),
       ),
     );
@@ -137,12 +141,24 @@ class HomeScreen extends ConsumerWidget {
   // 彈出新增視窗 (精簡版邏輯演示)
   // lib/screens/home_screen.dart 裡面的方法
 
-  void _showAddTodoBottomSheet(BuildContext context, WidgetRef ref) {
-    final titleController = TextEditingController();
+  void _showTodoModal(
+    BuildContext context,
+    WidgetRef ref, {
+    TodoItem? todoToEdit,
+  }) {
+    // 判斷目前是「編輯模式」還是「新增模式」
+    final isEditing = todoToEdit != null;
 
-    // 預設值
-    TodoPriority selectedPriority = TodoPriority.medium;
-    TodoCategory selectedCategory = TodoCategory.work;
+    // 1. 初始化數值：如果是編輯，就帶入舊資料；如果是新增，就用預設值
+    final titleController = TextEditingController(
+      text: isEditing ? todoToEdit.title : '',
+    );
+    TodoPriority selectedPriority = isEditing
+        ? todoToEdit.priority
+        : TodoPriority.medium;
+    TodoCategory selectedCategory = isEditing
+        ? todoToEdit.category
+        : TodoCategory.work;
 
     showModalBottomSheet(
       context: context,
@@ -165,8 +181,9 @@ class HomeScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    '建立新任務',
+                  // 2. 動態變更標題
+                  Text(
+                    isEditing ? '編輯任務' : '建立新任務',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
@@ -249,7 +266,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // 送出按鈕
+                  // 3. 動態按鈕文字與邏輯
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -260,29 +277,43 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                     onPressed: () {
-                      if (titleController.text.trim().isNotEmpty) {
+                      final inputTitle = titleController.text.trim();
+                      if (inputTitle.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('請輸入任務名稱！')),
+                        );
+                        return;
+                      }
+
+                      if (isEditing) {
+                        // 執行編輯更新
+                        ref
+                            .read(todoListProvider.notifier)
+                            .updateTodo(
+                              todoToEdit.id,
+                              title: inputTitle,
+                              priority: selectedPriority,
+                              category: selectedCategory,
+                            );
+                      } else {
+                        // 執行全新新增
                         ref
                             .read(todoListProvider.notifier)
                             .addTodo(
                               TodoItem(
-                                title: titleController.text.trim(),
+                                title: inputTitle,
                                 priority: selectedPriority,
                                 category: selectedCategory,
                                 dueDate: DateTime.now().add(
                                   const Duration(days: 1),
-                                ), // 預設明天截止
+                                ),
                               ),
                             );
-                        Navigator.pop(context); // 關閉彈出視窗
-                      } else {
-                        // 提示不可為空
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('請輸入任務名稱！')),
-                        );
                       }
+                      Navigator.pop(context);
                     },
-                    child: const Text(
-                      '新增任務',
+                    child: Text(
+                      isEditing ? '儲存修改' : '新增任務',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

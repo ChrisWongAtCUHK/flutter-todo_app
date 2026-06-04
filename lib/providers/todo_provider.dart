@@ -42,4 +42,28 @@ class TodoNotifier extends StateNotifier<List<TodoItem>> {
     _box.delete(id);
     state = state.where((item) => item.id != id).toList();
   }
+
+  void updateTodo(
+    String id, {
+    required String title,
+    required TodoPriority priority,
+    required TodoCategory category,
+  }) {
+    final todo = state.firstWhere((item) => item.id == id);
+
+    // 使用 copyWith 複製並修改屬性
+    final updatedTodo = todo.copyWith(
+      title: title,
+      priority: priority,
+      category: category,
+    );
+
+    _box.put(id, updatedTodo); // 更新本地資料庫
+
+    // 更新狀態讓 UI 重繪
+    state = [
+      for (final item in state)
+        if (item.id == id) updatedTodo else item,
+    ];
+  }
 }
